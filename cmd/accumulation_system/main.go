@@ -22,8 +22,8 @@ func setupRouter(cfg *config.Config, store storage.Storage) *chi.Mux {
 	r.Use(logger.RequestLogger)
 	r.Use(handler.GzipMiddleware)
 	r.Route("/api/user", func(r chi.Router) {
-		r.Post("/register", h.JSONGenerateURL)
-		r.Post("/login", h.BatchGenerateURL)
+		r.Post("/register", h.RegisterUser)
+		r.Post("/login", h.LoginUser)
 	})
 	// r.Route("/api/user", func(r chi.Router) {
 	// 	r.With(h.GetOrCreateUserMiddleware).Get("/urls", h.GetUserURLs)

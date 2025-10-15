@@ -1,23 +1,16 @@
 MIGRATIONS_DIR=./migrations
 MIGRATE_BIN=$(shell go env GOPATH)/bin/migrate
-DB_URL=postgres://test:test@localhost:5432/test?sslmode=disable
+DB_URL=postgres://test:test@localhost:5433/test?sslmode=disable
 GO_IMPORTS_BIN=$(shell go env GOPATH)/bin/goimports
 
 start:
 	@$(GO_IMPORTS_BIN) -w .
-	@go run ./cmd/accumulation_system/main.go -d="host=127.0.0.1 port=5469 user=test password=test dbname=test sslmode=disable"
+	@go run ./cmd/accumulation_system/main.go -d="host=127.0.0.1 port=5433 user=test password=test dbname=test sslmode=disable"
 
-start-memory:
-	@$(GO_IMPORTS_BIN) -w .
-	@go run ./cmd/shortener/main.go
-
-start-file:
-	@$(GO_IMPORTS_BIN) -w .
-	@go run ./cmd/shortener/main.go -f=storage.json
 
 build:
 	@$(GO_IMPORTS_BIN) -w .
-	@go build -o ./cmd/shortener/shortener ./cmd/shortener/main.go
+	@go build -o ./cmd/accumulation_system ./cmd/accumulation_system/main.go
 
 migrate-create:
 	@if [ -z "$(name)" ]; then \

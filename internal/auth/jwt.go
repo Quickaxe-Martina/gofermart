@@ -14,7 +14,8 @@ import (
 // одно пользовательское UserID
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID int
+	UserID   int
+	UserName string
 }
 
 // ErrNoJWTInCookie indicates that there is no JWT token in the cookie
@@ -26,9 +27,8 @@ var ErrInvalidJWTToken = errors.New("invalid jwt token")
 // Имя куки, в которой хранится JWT-токен
 const cookieUserJWT = "jwt_token"
 
-// GetUserID принимает JWT-токен в виде строки, парсит его и возвращает UserID из утверждений.
-// Если токен недействителен или произошла ошибка при парсинге, возвращается -1.
-func GetUserID(tokenString string, secretKey string) int {
+// GetUser TODO
+func GetUser(tokenString string, secretKey string) (storage.User, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims,
 		func(t *jwt.Token) (any, error) {
@@ -38,18 +38,18 @@ func GetUserID(tokenString string, secretKey string) int {
 			return []byte(secretKey), nil
 		})
 	if err != nil {
-		return -1
+		return storage.User{}, err
 	}
 
 	if !token.Valid {
-		return -1
+		return storage.User{}, ErrInvalidJWTToken
 	}
 
-	return claims.UserID
+	return storage.User{ID: claims.UserID, UserName: claims.UserName}, nil
 }
 
 // BuildJWTString создаёт токен и возвращает его в виде строки.
-func BuildJWTString(secretKey string, tokenExp time.Duration, userID int) (string, error) {
+func BuildJWTString(secretKey string, tokenExp time.Duration, userID int, username string) (string, error) {
 	// создаём новый токен с алгоритмом подписи HS256 и утверждениями — Claims
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -57,7 +57,8 @@ func BuildJWTString(secretKey string, tokenExp time.Duration, userID int) (strin
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(tokenExp)),
 		},
 		// собственное утверждение
-		UserID: userID,
+		UserID:   userID,
+		UserName: username,
 	})
 
 	// создаём строку токена
@@ -81,6 +82,16 @@ func SetTokenInCookie(w http.ResponseWriter, token string, ttl time.Duration) {
 	http.SetCookie(w, cookie)
 }
 
+// GenerateAndSetTokenInCookie TODO
+func GenerateAndSetTokenInCookie(w http.ResponseWriter, secretKey string, tokenExp time.Duration, userID int, username string) error {
+	token, err := BuildJWTString(secretKey, tokenExp, userID, username)
+	if err != nil {
+		return err
+	}
+	SetTokenInCookie(w, token, tokenExp)
+	return nil
+}
+
 // GetUserByCookie extracts the JWT token from the request cookie,
 // validates it, and returns the associated User.
 func GetUserByCookie(r *http.Request, secretKey string) (storage.User, error) {
@@ -91,30 +102,9 @@ func GetUserByCookie(r *http.Request, secretKey string) (storage.User, error) {
 		}
 		return storage.User{}, err
 	}
-	userID := GetUserID(cookie.Value, secretKey)
-	if userID == -1 {
-		return storage.User{}, ErrInvalidJWTToken
-	}
-	return storage.User{ID: userID}, nil
-}
-
-// GetOrCreateUser retrieves the user from the request cookie or creates a new user if not found.
-func GetOrCreateUser(w http.ResponseWriter, r *http.Request, store storage.Storage, secretKey string, tokenExp time.Duration) (storage.User, error) {
-	user, err := GetUserByCookie(r, secretKey)
+	user, err := GetUser(cookie.Value, secretKey)
 	if err != nil {
-		if errors.Is(err, ErrNoJWTInCookie) || errors.Is(err, ErrInvalidJWTToken) {
-			user, err = store.CreateUser(r.Context())
-			if err != nil {
-				return storage.User{}, err
-			}
-			tokenString, err := BuildJWTString(secretKey, tokenExp, user.ID)
-			if err != nil {
-				return storage.User{}, err
-			}
-			SetTokenInCookie(w, tokenString, tokenExp)
-			return user, nil
-		}
-		return storage.User{}, err
+		return storage.User{}, ErrInvalidJWTToken
 	}
 	return user, nil
 }
