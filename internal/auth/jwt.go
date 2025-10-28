@@ -77,6 +77,7 @@ func SetTokenInCookie(w http.ResponseWriter, token string, ttl time.Duration) {
 		Name:     cookieUserJWT,
 		Value:    token,
 		HttpOnly: true,
+		Secure:   false,
 		Expires:  time.Now().Add(ttl),
 	}
 	http.SetCookie(w, cookie)

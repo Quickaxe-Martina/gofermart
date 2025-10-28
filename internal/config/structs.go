@@ -6,7 +6,6 @@ type Config struct {
 	DatabaseDsn          string `env:"DATABASE_DSN"`
 	AccuralSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
 	MigrationsPath       string `env:"MIGRATIONS_PATH"`
-	DevMode              bool   `env:"DEV_MODE"`
 	SecretKey            string `env:"SECRET_KEY"`
 	TokenExp             int    `env:"TOKEN_EXP"`
 	DeleteBachSize       int    `env:"DELETE_BACH_SIZE"`
@@ -20,7 +19,6 @@ func NewConfig() *Config {
 		DatabaseDsn:          "",
 		AccuralSystemAddress: "",
 		MigrationsPath:       "./migrations",
-		DevMode:              false,
 		SecretKey:            "my_secret_key",
 		TokenExp:             3,
 		DeleteTimeDuration:   5,

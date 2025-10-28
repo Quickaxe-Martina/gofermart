@@ -12,8 +12,21 @@ rm -rf ./data.json
 rm -rf ./cmd/gophermart/data.json
 
 export DATABASE_DSN="postgresql://test:test@127.0.0.1:5433/test?sslmode=disable"
+# export DEV_MODE="true"
+
+# ./gophermarttest \
+# -test.v -test.run=TestGophermart/TestUserAuth \
+# -gophermart-binary-path=cmd/gophermart/gophermart \
+# -gophermart-database-uri="host=127.0.0.1 port=5433 user=test password=test dbname=test sslmode=disable" \
+# -gophermart-host=127.0.0.1 \
+# -gophermart-port=8080 \
+# -accrual-binary-path=cmd/accrual/accrual_linux_amd64 \
+# -accrual-database-uri="postgresql://test:test@127.0.0.1:5433/accrual?sslmode=disable" \
+# -accrual-host=127.0.0.1 \
+# -accrual-port=8081
 
 ./gophermarttest \
+-test.v -test.run=TestGophermart/TestUserOrders \
 -gophermart-binary-path=cmd/gophermart/gophermart \
 -gophermart-database-uri="host=127.0.0.1 port=5433 user=test password=test dbname=test sslmode=disable" \
 -gophermart-host=127.0.0.1 \
@@ -22,3 +35,14 @@ export DATABASE_DSN="postgresql://test:test@127.0.0.1:5433/test?sslmode=disable"
 -accrual-database-uri="postgresql://test:test@127.0.0.1:5433/accrual?sslmode=disable" \
 -accrual-host=127.0.0.1 \
 -accrual-port=8081
+
+# ./gophermarttest \
+# -test.v -test.run=TestGophermart/TestEndToEnd  \
+# -gophermart-binary-path=cmd/gophermart/gophermart \
+# -gophermart-database-uri="host=127.0.0.1 port=5433 user=test password=test dbname=test sslmode=disable" \
+# -gophermart-host=127.0.0.1 \
+# -gophermart-port=8080 \
+# -accrual-binary-path=cmd/accrual/accrual_linux_amd64 \
+# -accrual-database-uri="postgresql://test:test@127.0.0.1:5433/accrual?sslmode=disable" \
+# -accrual-host=127.0.0.1 \
+# -accrual-port=8081
