@@ -71,7 +71,7 @@ func (store *PostgresStorage) CreateUser(ctx context.Context, username string, p
 		}
 		return User{}, err
 	}
-	return User{ID: int(id), UserName: username}, nil
+	return User{ID: id, UserName: username}, nil
 }
 
 // GetUserByUserName return User
@@ -95,4 +95,49 @@ func (store *PostgresStorage) GetUserByUserName(ctx context.Context, username st
 	}
 
 	return user, nil
+}
+
+// CreateOrder creates a new order and returns it
+func (store *PostgresStorage) CreateOrder(ctx context.Context, orderNumber int, userID int) (Order, error) {
+	var currentUserID int
+	var isInsertionTime bool
+	query := `
+		INSERT INTO orders (order_number, user_id, uploaded_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (order_number) DO UPDATE SET order_number = orders.order_number
+		RETURNING user_id, uploaded_at = $4
+	`
+	err := store.DB.QueryRowContext(ctx, query, orderNumber, userID).Scan(&currentUserID, isInsertionTime)
+	if err != nil {
+		return Order{}, err
+	}
+	if currentUserID != userID {
+		return Order{}, ErrOrderCreatedByAnotherUser
+	}
+	if !isInsertionTime {
+		return Order{}, ErrOrderAlreadyCreatedByUser
+	}
+	return Order{OrderNumber: orderNumber, UserID: userID}, nil
+}
+
+// GetOrdersByUser todo
+func (store *PostgresStorage) GetOrdersByUser(ctx context.Context, userID int) ([]Order, error) {
+	rows, err := store.DB.QueryContext(ctx, "SELECT id, order_number, user_id, status, accrual, uploaded_at FROM orders WHERE user_id = $1", userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []Order
+	for rows.Next() {
+		var order Order
+		if err := rows.Scan(&order.ID, &order.OrderNumber, &order.UserID, &order.Status, &order.Accrual, &order.UploadedAt); err != nil {
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return orders, nil
 }

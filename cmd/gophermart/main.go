@@ -25,10 +25,11 @@ func setupRouter(cfg *config.Config, store storage.Storage) *chi.Mux {
 		r.Post("/register", h.RegisterUser)
 		r.Post("/login", h.LoginUser)
 	})
-	// r.Route("/api/user", func(r chi.Router) {
-	// 	r.With(h.GetOrCreateUserMiddleware).Get("/urls", h.GetUserURLs)
-	// 	r.With(h.GetOrCreateUserMiddleware).Delete("/urls", h.DeleteUserURLs)
-	// })
+	r.Route("/api/user/orders", func(r chi.Router) {
+		r.With(h.UserMiddleware).Post("/", h.CreateOrder)
+		r.With(h.UserMiddleware).Get("/", h.GetOrders)
+		// r.Get("/urls", h.DeleteUserURLs)
+	})
 	r.Route("/ping", func(r chi.Router) {
 		r.Get("/", h.Ping)
 	})
@@ -46,6 +47,8 @@ func main() {
 		log.Panic(err)
 	}
 	r := setupRouter(cfg, store)
+	logger.Log.Info(cfg.DatabaseDsn)
+	logger.Log.Info("application is running")
 
 	// Обработчик завершения (Ctrl+C, SIGTERM и т.п.)
 	go func() {
