@@ -23,7 +23,7 @@ CREATE TABLE orders (
 
 CREATE TABLE withdrawals (
     user_id INTEGER NOT NULL REFERENCES users (id),
-    order_number INTEGER NOT NULL,
+    order_number VARCHAR(50) UNIQUE NOT NULL,
     sum NUMERIC NOT NULL CHECK(sum >= 0) DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

@@ -177,7 +177,7 @@ func (store *PostgresStorage) GetOrdersByUser(ctx context.Context, userID int) (
 }
 
 // WithdrawUser todo
-func (store *PostgresStorage) WithdrawUser(ctx context.Context, userID int, sum float64, orderNumber int) error {
+func (store *PostgresStorage) WithdrawUser(ctx context.Context, userID int, sum float64, orderNumber string) error {
 	tx, err := store.DB.Begin()
 	if err != nil {
 		return err

@@ -72,7 +72,7 @@ func (h *Handler) WithdrawUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Incorrect order number", http.StatusUnprocessableEntity)
 		return
 	}
-	err = h.store.WithdrawUser(r.Context(), user.ID, req.Sum, orderCode)
+	err = h.store.WithdrawUser(r.Context(), user.ID, req.Sum, req.Order)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
 			logger.Log.Error(user.UserName)
@@ -112,7 +112,7 @@ func (h *Handler) GetWithdrawalsByUser(w http.ResponseWriter, r *http.Request) {
 		resp := make([]GetWithdrawalsByUserResponse, 0, len(withdrawals))
 		for _, wd := range withdrawals {
 			resp = append(resp, GetWithdrawalsByUserResponse{
-				Order:       strconv.FormatInt(wd.OrderNumber, 10),
+				Order:       wd.OrderNumber,
 				Sum:         wd.Sum,
 				ProcessedAt: wd.CreatedAt.Format(time.RFC3339),
 			})

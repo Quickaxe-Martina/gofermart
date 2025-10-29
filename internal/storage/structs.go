@@ -65,7 +65,7 @@ type UserBalance struct {
 
 // Withdrawal todo
 type Withdrawal struct {
-	OrderNumber int64
+	OrderNumber string
 	Sum         float64
 	CreatedAt   time.Time
 }
@@ -75,7 +75,7 @@ type UserStorage interface {
 	CreateUser(ctx context.Context, username string, passwordHash string) (User, error)
 	GetUserByUserName(ctx context.Context, username string) (User, error)
 	GetBalanceByUser(ctx context.Context, userID int) (UserBalance, error)
-	WithdrawUser(ctx context.Context, userID int, sum float64, orderNumber int) error
+	WithdrawUser(ctx context.Context, userID int, sum float64, orderNumber string) error
 	GetWithdrawalsByUser(ctx context.Context, userID int) ([]Withdrawal, error)
 	AccrueUser(ctx context.Context, userID int, sum float64, status string, orderNumber string) error
 }
