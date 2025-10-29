@@ -112,7 +112,7 @@ func (h *Handler) GetWithdrawalsByUser(w http.ResponseWriter, r *http.Request) {
 		resp := make([]GetWithdrawalsByUserResponse, 0, len(withdrawals))
 		for _, wd := range withdrawals {
 			resp = append(resp, GetWithdrawalsByUserResponse{
-				Order:       strconv.Itoa(wd.OrderNumber),
+				Order:       strconv.FormatInt(wd.OrderNumber, 10),
 				Sum:         wd.Sum,
 				ProcessedAt: wd.CreatedAt.Format(time.RFC3339),
 			})
