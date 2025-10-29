@@ -13,7 +13,6 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib" // driver
 
 	"github.com/Quickaxe-Martina/gofermart/internal/config"
-	_ "github.com/Quickaxe-Martina/gofermart/internal/logger" // logger
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
@@ -244,6 +243,9 @@ func (store *PostgresStorage) GetWithdrawalsByUser(ctx context.Context, userID i
 			return nil, err
 		}
 		withdrawals = append(withdrawals, withdrawal)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return withdrawals, nil
 }
