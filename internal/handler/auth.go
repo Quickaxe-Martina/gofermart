@@ -52,7 +52,7 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := auth.GenerateAndSetTokenInCookie(w, h.cfg.SecretKey, time.Duration(h.cfg.TokenExp), user.ID, user.PasswordHash); err != nil {
+	if err := auth.GenerateAndSetTokenInCookie(w, h.cfg.SecretKey, time.Hour*time.Duration(h.cfg.TokenExp), user.ID, user.PasswordHash); err != nil {
 		logger.Log.Error("failed to generate token", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -94,7 +94,7 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := auth.GenerateAndSetTokenInCookie(w, h.cfg.SecretKey, time.Duration(h.cfg.TokenExp), user.ID, user.PasswordHash); err != nil {
+	if err := auth.GenerateAndSetTokenInCookie(w, h.cfg.SecretKey, time.Hour*time.Duration(h.cfg.TokenExp), user.ID, user.PasswordHash); err != nil {
 		logger.Log.Error("failed to generate token", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return

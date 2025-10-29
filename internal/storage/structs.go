@@ -12,6 +12,9 @@ var ErrUserNameAlreadyExists = errors.New("username is already taken")
 // ErrUserNotFound user not found
 var ErrUserNotFound = errors.New("user not found")
 
+// ErrLowBalance low balance
+var ErrLowBalance = errors.New("low balance")
+
 // ErrNotImplemented not implemented
 var ErrNotImplemented = errors.New("not implemented")
 
@@ -54,10 +57,27 @@ type User struct {
 	PasswordHash string
 }
 
+// UserBalance todo
+type UserBalance struct {
+	Balance   float64 `json:"current"`
+	Withdrawn float64 `json:"withdrawn"`
+}
+
+// Withdrawal todo
+type Withdrawal struct {
+	OrderNumber int       `json:"order"`
+	Sum         float64   `json:"sum"`
+	CreatedAt   time.Time `json:"processed_at"`
+}
+
 // UserStorage defines methods for user management
 type UserStorage interface {
 	CreateUser(ctx context.Context, username string, passwordHash string) (User, error)
 	GetUserByUserName(ctx context.Context, username string) (User, error)
+	GetBalanceByUser(ctx context.Context, userID int) (UserBalance, error)
+	WithdrawUser(ctx context.Context, userID int, sum float64, orderNumber int) error
+	GetWithdrawalsByUser(ctx context.Context, userID int) ([]Withdrawal, error)
+	AccrueUser(ctx context.Context, userID int, sum float64, status string, orderNumber string) error
 }
 
 // Storage defines methods

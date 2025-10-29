@@ -22,11 +22,11 @@ type checkOrderTask struct {
 	OrderNumber   string
 	ScheduledTime time.Time
 	Attempts      int
+	UserID        int
 }
 
 type resultTask struct {
 	result    client.AccrualResponse
-	err       error
 	checkTask checkOrderTask
 }
 
@@ -62,6 +62,8 @@ func NewOrderWorkers(store storage.Storage, numWorkers int, URL string, poolSize
 	for i := 0; i < numWorkers; i++ {
 		wm.wg.Add(1)
 		go wm.worker(i)
+		wm.wg.Add(1)
+		go wm.resultWorker(i)
 	}
 
 	return wm
@@ -145,26 +147,47 @@ func (wm *OrderWorkers) handleCheckOrder(task checkOrderTask) {
 	if err != nil {
 		if errors.Is(err, client.ErrToManyRequests) {
 			task.Attempts++
-			task.ScheduledTime = time.Now().Add(time.Minute * 10)
+			task.ScheduledTime = time.Now().Add(time.Second * 10)
 			wm.inputCh <- task
 		}
 	}
-	if result.Status == "PROCESSING" {
+	if result.Status == storage.StatusProcessing || result.Status == storage.StatusNew {
 		task.Attempts++
-		task.ScheduledTime = time.Now().Add(time.Minute * 5)
+		task.ScheduledTime = time.Now().Add(time.Second * 5)
 		wm.inputCh <- task
+	} else if result.Status == storage.StatusProcessed || result.Status == storage.StatusInvalid {
+		wm.resultCh <- resultTask{
+			result:    result,
+			checkTask: task,
+		}
+	}
+}
+
+func (wm *OrderWorkers) resultWorker(id int) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	defer wm.wg.Done()
+	logger.Log.Info(fmt.Sprintf("result worker-%d started", id))
+	for {
+		select {
+		case <-wm.doneCh:
+			logger.Log.Info(fmt.Sprintf("result worker-%d stopping", id))
+			return
+		case task := <-wm.resultCh:
+			wm.store.AccrueUser(ctx, task.checkTask.UserID, task.result.Accrual, task.result.Status, task.checkTask.OrderNumber)
+		}
 	}
 }
 
 // AddTask add task to check order
-func (wm *OrderWorkers) AddTask(OrderNumber string) error {
+func (wm *OrderWorkers) AddTask(OrderNumber string, userID int) error {
 	select {
 	case <-wm.doneCh:
 		return ErrWorkerStopped
 	default:
 	}
 
-	wm.inputCh <- checkOrderTask{OrderNumber: OrderNumber, ScheduledTime: time.Now(), Attempts: 0}
+	wm.inputCh <- checkOrderTask{OrderNumber: OrderNumber, ScheduledTime: time.Now(), Attempts: 0, UserID: userID}
 	return nil
 }
 

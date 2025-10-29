@@ -42,13 +42,14 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "The order number has already been uploaded by another user", http.StatusConflict)
 		} else if errors.Is(err, storage.ErrOrderAlreadyCreatedByUser) {
 			w.WriteHeader(http.StatusOK)
+		} else {
 			logger.Log.Error("", zap.Error(err))
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
 		return
 	}
 
-	// TODO: add task
+	h.orderWorker.AddTask(strconv.Itoa(orderCode), user.ID)
 
 	w.WriteHeader(http.StatusAccepted)
 }

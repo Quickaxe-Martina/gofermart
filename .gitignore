@@ -33,3 +33,4 @@ go.work.sum
 cmd/gophermart/main
 gophermarttest
 cmd/gophermart/gophermart
+cmd/wipedb/wipedb

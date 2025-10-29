@@ -25,7 +25,7 @@ var ErrNoJWTInCookie = errors.New("no jwt in cookie")
 var ErrInvalidJWTToken = errors.New("invalid jwt token")
 
 // Имя куки, в которой хранится JWT-токен
-const cookieUserJWT = "jwt_token"
+const cookieUserJWT = "gophermart_jwt_token"
 
 // GetUser TODO
 func GetUser(tokenString string, secretKey string) (storage.User, error) {
@@ -78,6 +78,7 @@ func SetTokenInCookie(w http.ResponseWriter, token string, ttl time.Duration) {
 		Value:    token,
 		HttpOnly: true,
 		Secure:   false,
+		Path:     "/",
 		Expires:  time.Now().Add(ttl),
 	}
 	http.SetCookie(w, cookie)

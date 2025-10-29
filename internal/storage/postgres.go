@@ -5,6 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/Quickaxe-Martina/gofermart/internal/logger"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // driver
 
@@ -12,6 +16,7 @@ import (
 	_ "github.com/Quickaxe-Martina/gofermart/internal/logger" // logger
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 )
 
 // PostgresStorage is DB implementation of the Storage interface
@@ -97,17 +102,41 @@ func (store *PostgresStorage) GetUserByUserName(ctx context.Context, username st
 	return user, nil
 }
 
+// GetBalanceByUser todo
+func (store *PostgresStorage) GetBalanceByUser(ctx context.Context, userID int) (UserBalance, error) {
+	query := `
+		SELECT balance, withdrawn
+		FROM users
+		WHERE id = $1;
+	`
+	row := store.DB.QueryRowContext(ctx, query, userID)
+	var balance UserBalance
+	if err := row.Scan(
+		&balance.Balance,
+		&balance.Withdrawn,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return UserBalance{}, ErrUserNotFound
+		}
+		return UserBalance{}, err
+	}
+
+	return balance, nil
+}
+
 // CreateOrder creates a new order and returns it
 func (store *PostgresStorage) CreateOrder(ctx context.Context, orderNumber int, userID int) (Order, error) {
 	var currentUserID int
 	var isInsertionTime bool
+	orderNumberStr := strconv.Itoa(orderNumber)
+	uploadedAt := time.Now().In(time.UTC)
 	query := `
 		INSERT INTO orders (order_number, user_id, uploaded_at)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (order_number) DO UPDATE SET order_number = orders.order_number
-		RETURNING user_id, uploaded_at = $4
+		RETURNING user_id, uploaded_at = $4;
 	`
-	err := store.DB.QueryRowContext(ctx, query, orderNumber, userID).Scan(&currentUserID, isInsertionTime)
+	err := store.DB.QueryRowContext(ctx, query, orderNumberStr, userID, uploadedAt, uploadedAt).Scan(&currentUserID, &isInsertionTime)
 	if err != nil {
 		return Order{}, err
 	}
@@ -122,7 +151,13 @@ func (store *PostgresStorage) CreateOrder(ctx context.Context, orderNumber int, 
 
 // GetOrdersByUser todo
 func (store *PostgresStorage) GetOrdersByUser(ctx context.Context, userID int) ([]Order, error) {
-	rows, err := store.DB.QueryContext(ctx, "SELECT id, order_number, user_id, status, accrual, uploaded_at FROM orders WHERE user_id = $1", userID)
+	query := `
+		SELECT id, order_number, user_id, status, accrual, uploaded_at 
+		FROM orders 
+		WHERE user_id = $1 
+		ORDER BY uploaded_at DESC;
+	`
+	rows, err := store.DB.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -140,4 +175,116 @@ func (store *PostgresStorage) GetOrdersByUser(ctx context.Context, userID int) (
 		return nil, err
 	}
 	return orders, nil
+}
+
+// WithdrawUser todo
+func (store *PostgresStorage) WithdrawUser(ctx context.Context, userID int, sum float64, orderNumber int) error {
+	tx, err := store.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var balance, withdrawn float64
+	row := tx.QueryRowContext(ctx, `SELECT balance, withdrawn FROM users WHERE id = $1 FOR UPDATE`, userID)
+	if err := row.Scan(&balance, &withdrawn); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrUserNotFound
+		}
+		logger.Log.Error("cannot lock user row", zap.Error(err))
+		return err
+	}
+
+	if balance < sum {
+		return ErrLowBalance
+	}
+
+	newBalance := balance - sum
+	newWithdrawn := withdrawn + sum
+
+	_, err = tx.QueryContext(ctx, `
+        UPDATE users
+        SET balance = $1, withdrawn = $2
+        WHERE id = $3
+    `, newBalance, newWithdrawn, userID)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, `
+        INSERT INTO withdrawals (user_id, order_number, sum, created_at)
+        VALUES ($1, $2, $3, NOW())
+    `, userID, orderNumber, sum)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// GetWithdrawalsByUser todo
+func (store *PostgresStorage) GetWithdrawalsByUser(ctx context.Context, userID int) ([]Withdrawal, error) {
+	query := `
+		SELECT order_number, sum, created_at
+		FROM withdrawals
+		WHERE user_id = $1
+		ORDER BY created_at DESC;
+	`
+	rows, err := store.DB.QueryContext(ctx, query, userID)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var withdrawals []Withdrawal
+	for rows.Next() {
+		var withdrawal Withdrawal
+		if err := rows.Scan(&withdrawal.OrderNumber, &withdrawal.Sum, &withdrawal.CreatedAt); err != nil {
+			return nil, err
+		}
+		withdrawals = append(withdrawals, withdrawal)
+	}
+	return withdrawals, nil
+}
+
+// AccrueUser ещвщ
+func (store *PostgresStorage) AccrueUser(ctx context.Context, userID int, sum float64, status string, orderNumber string) error {
+	tx, err := store.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var balance float64
+	row := tx.QueryRowContext(ctx, `SELECT balance FROM users WHERE id = $1 FOR UPDATE`, userID)
+	if err := row.Scan(&balance); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrUserNotFound
+		}
+		logger.Log.Error("cannot lock user row", zap.Error(err))
+		return err
+	}
+
+	newBalance := balance + sum
+
+	_, err = tx.ExecContext(ctx, `
+        UPDATE users
+        SET balance = $1
+        WHERE id = $2
+    `, newBalance, userID)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, `
+        UPDATE orders
+		SET status = $1, accrual = $2
+		WHERE order_number = $3;
+    `, status, sum, orderNumber)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

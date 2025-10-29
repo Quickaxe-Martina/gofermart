@@ -8,8 +8,9 @@ type Config struct {
 	MigrationsPath       string `env:"MIGRATIONS_PATH"`
 	SecretKey            string `env:"SECRET_KEY"`
 	TokenExp             int    `env:"TOKEN_EXP"`
-	DeleteBachSize       int    `env:"DELETE_BACH_SIZE"`
-	DeleteTimeDuration   int    `env:"DELETE_TIME_DURATION"`
+	NumWorkers           int    `env:"NUM_WORKERS"`
+	PullSize             int    `env:"PULL_SIZE"`
+	PoolTimeout          int    `env:"PULL_TIMEOUT"`
 }
 
 // NewConfig create Config
@@ -21,8 +22,9 @@ func NewConfig() *Config {
 		MigrationsPath:       "./migrations",
 		SecretKey:            "my_secret_key",
 		TokenExp:             3,
-		DeleteTimeDuration:   5,
-		DeleteBachSize:       50,
+		PullSize:             30,
+		PoolTimeout:          5,
+		NumWorkers:           3,
 	}
 	LoadEnv(&cfg)
 	ParseFlags(&cfg, true)
