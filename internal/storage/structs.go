@@ -21,10 +21,10 @@ var ErrNotImplemented = errors.New("not implemented")
 // ErrOrderAlreadyExists order is already taken
 var ErrOrderAlreadyExists = errors.New("order is already taken")
 
-// ErrOrderCreatedByAnotherUser todo
+// ErrOrderCreatedByAnotherUser order cteated by another user
 var ErrOrderCreatedByAnotherUser = errors.New("order cteated by another user")
 
-// ErrOrderAlreadyCreatedByUser todo
+// ErrOrderAlreadyCreatedByUser order is already created
 var ErrOrderAlreadyCreatedByUser = errors.New("order is already created")
 
 const (

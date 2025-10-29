@@ -56,6 +56,6 @@ export DATABASE_DSN="postgresql://test:test@127.0.0.1:5433/test?sslmode=disable"
 -gophermart-host=127.0.0.1 \
 -gophermart-port=8080 \
 -accrual-binary-path=cmd/accrual/accrual_linux_amd64 \
--accrual-database-uri="postgresql://test:test@127.0.0.1:5433/accrual?sslmode=disable" \
+-accrual-database-uri="postgresql://test:test@127.0.0.1:5433/test?sslmode=disable" \
 -accrual-host=127.0.0.1 \
 -accrual-port=8081
