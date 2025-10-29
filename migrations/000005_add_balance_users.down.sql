@@ -1,3 +1,0 @@
-ALTER TABLE users
-DROP COLUMN IF EXISTS balance,
-DROP COLUMN IF EXISTS withdrawn;

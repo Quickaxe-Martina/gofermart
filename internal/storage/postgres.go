@@ -202,7 +202,7 @@ func (store *PostgresStorage) WithdrawUser(ctx context.Context, userID int, sum 
 	newBalance := balance - sum
 	newWithdrawn := withdrawn + sum
 
-	_, err = tx.QueryContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
         UPDATE users
         SET balance = $1, withdrawn = $2
         WHERE id = $3

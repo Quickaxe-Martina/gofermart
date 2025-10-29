@@ -34,7 +34,7 @@ func setupRouter(cfg *config.Config, store storage.Storage, orderWorker *reposit
 	})
 	r.Route("/api/user/balance", func(r chi.Router) {
 		r.With(h.UserMiddleware).Get("/", h.GetUserBalance)
-		r.With(h.UserMiddleware).Post("/withdraw ", h.WithdrawUser)
+		r.With(h.UserMiddleware).Post("/withdraw", h.WithdrawUser)
 	})
 	r.Route("/api/user/withdrawals", func(r chi.Router) {
 		r.With(h.UserMiddleware).Get("/", h.GetWithdrawalsByUser)

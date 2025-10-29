@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"strconv"
+	"time"
 
 	"github.com/Quickaxe-Martina/gofermart/internal/logger"
 	"github.com/Quickaxe-Martina/gofermart/internal/service"
@@ -39,7 +40,7 @@ func (h *Handler) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 }
 
 type withdrawUserRequest struct {
-	Order string  `json:"order" validate:"required,containsany=0123456789"`
+	Order string  `json:"order" validate:"required,numeric"`
 	Sum   float64 `json:"sum" validate:"required,gte=0"`
 }
 
@@ -50,8 +51,7 @@ func (h *Handler) WithdrawUser(w http.ResponseWriter, r *http.Request) {
 	var req withdrawUserRequest
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&req); err != nil {
-		logger.Log.Info("cannot decode request JSON body", zap.Error(err))
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return
 	}
 
@@ -89,6 +89,13 @@ func (h *Handler) WithdrawUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// GetWithdrawalsByUserResponse todo
+type GetWithdrawalsByUserResponse struct {
+	Order       string  `json:"order"`
+	Sum         float64 `json:"sum"`
+	ProcessedAt string  `json:"processed_at"`
+}
+
 // GetWithdrawalsByUser todo
 func (h *Handler) GetWithdrawalsByUser(w http.ResponseWriter, r *http.Request) {
 	user := GetUser(r.Context())
@@ -102,8 +109,16 @@ func (h *Handler) GetWithdrawalsByUser(w http.ResponseWriter, r *http.Request) {
 	if len(withdrawals) == 0 {
 		w.WriteHeader(http.StatusNoContent)
 	} else {
+		resp := make([]GetWithdrawalsByUserResponse, 0, len(withdrawals))
+		for _, wd := range withdrawals {
+			resp = append(resp, GetWithdrawalsByUserResponse{
+				Order:       strconv.Itoa(wd.OrderNumber),
+				Sum:         wd.Sum,
+				ProcessedAt: wd.CreatedAt.Format(time.RFC3339),
+			})
+		}
 		enc := json.NewEncoder(w)
-		if err := enc.Encode(withdrawals); err != nil {
+		if err := enc.Encode(resp); err != nil {
 			logger.Log.Error("error encoding response", zap.Error(err))
 			return
 		}

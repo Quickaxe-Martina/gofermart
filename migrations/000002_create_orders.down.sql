@@ -1,3 +1,0 @@
-ALTER TABLE orders
-DROP CONSTRAINT fk_orders_user;
-DROP TABLE IF EXISTS orders CASCADE;

@@ -65,9 +65,9 @@ type UserBalance struct {
 
 // Withdrawal todo
 type Withdrawal struct {
-	OrderNumber int       `json:"order"`
-	Sum         float64   `json:"sum"`
-	CreatedAt   time.Time `json:"processed_at"`
+	OrderNumber int64
+	Sum         float64
+	CreatedAt   time.Time
 }
 
 // UserStorage defines methods for user management

@@ -1,0 +1,31 @@
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    balance NUMERIC NOT NULL CHECK(balance >= 0) DEFAULT 0,
+    withdrawn NUMERIC NOT NULL CHECK(withdrawn >= 0) DEFAULT 0
+);
+
+CREATE TABLE orders (
+    id SERIAL PRIMARY KEY,
+    order_number VARCHAR(50) UNIQUE NOT NULL,
+    user_id INT NULL DEFAULT NULL,
+    status VARCHAR(10) NOT NULL CHECK (
+        status IN ('NEW', 'PROCESSING', 'INVALID', 'PROCESSED')
+    ) DEFAULT 'NEW',
+    accrual NUMERIC NOT NULL CHECK (accrual >= 0) DEFAULT 0,
+    uploaded_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_orders_user FOREIGN KEY (user_id)
+        REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE withdrawals (
+    user_id INTEGER NOT NULL REFERENCES users (id),
+    order_number INTEGER NOT NULL,
+    sum NUMERIC NOT NULL CHECK(sum >= 0) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX idx_withdrawals_order_number ON withdrawals(order_number);

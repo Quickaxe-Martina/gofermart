@@ -1,6 +1,0 @@
-CREATE TABLE withdrawals (
-    user_id INTEGER NOT NULL REFERENCES users (id),
-    order_number INTEGER NOT NULL,
-    sum NUMERIC NOT NULL CHECK(sum >= 0) DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
