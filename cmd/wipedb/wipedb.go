@@ -10,7 +10,7 @@ import (
 	"slices"
 	"time"
 
-	_ "github.com/jackc/pgx/stdlib"
+	_ "github.com/jackc/pgx/stdlib" //
 )
 
 func main() {
