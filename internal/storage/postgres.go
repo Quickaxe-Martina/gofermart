@@ -4,11 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	"strconv"
 	"time"
-
-	"github.com/Quickaxe-Martina/gofermart/internal/logger"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // driver
 
@@ -20,22 +16,24 @@ import (
 
 // PostgresStorage is DB implementation of the Storage interface
 type PostgresStorage struct {
-	DB *sql.DB
+	DB      *sql.DB
+	logging *zap.Logger
 }
 
 // NewPostgresStorage creates new PostgresStorage
-func NewPostgresStorage(cfg *config.Config) *PostgresStorage {
+func NewPostgresStorage(cfg *config.Config, logging *zap.Logger) (*PostgresStorage, error) {
 	db, err := sql.Open("pgx", cfg.DatabaseDsn)
 	if err != nil {
 		panic(err)
 	}
 	if err := runMigrations(db, cfg.MigrationsPath); err != nil {
-		panic(fmt.Errorf("failed to run migrations: %w", err))
+		return nil, err
 	}
 	store := &PostgresStorage{
-		DB: db,
+		DB:      db,
+		logging: logging,
 	}
-	return store
+	return store, nil
 }
 
 // Close releases resources
@@ -101,7 +99,7 @@ func (store *PostgresStorage) GetUserByUserName(ctx context.Context, username st
 	return user, nil
 }
 
-// GetBalanceByUser todo
+// GetBalanceByUser get balance from DB
 func (store *PostgresStorage) GetBalanceByUser(ctx context.Context, userID int) (UserBalance, error) {
 	query := `
 		SELECT balance, withdrawn
@@ -124,10 +122,9 @@ func (store *PostgresStorage) GetBalanceByUser(ctx context.Context, userID int) 
 }
 
 // CreateOrder creates a new order and returns it
-func (store *PostgresStorage) CreateOrder(ctx context.Context, orderNumber int, userID int) (Order, error) {
+func (store *PostgresStorage) CreateOrder(ctx context.Context, orderNumber string, userID int) (Order, error) {
 	var currentUserID int
 	var isInsertionTime bool
-	orderNumberStr := strconv.Itoa(orderNumber)
 	uploadedAt := time.Now().In(time.UTC)
 	query := `
 		INSERT INTO orders (order_number, user_id, uploaded_at)
@@ -135,7 +132,7 @@ func (store *PostgresStorage) CreateOrder(ctx context.Context, orderNumber int, 
 		ON CONFLICT (order_number) DO UPDATE SET order_number = orders.order_number
 		RETURNING user_id, uploaded_at = $4;
 	`
-	err := store.DB.QueryRowContext(ctx, query, orderNumberStr, userID, uploadedAt, uploadedAt).Scan(&currentUserID, &isInsertionTime)
+	err := store.DB.QueryRowContext(ctx, query, orderNumber, userID, uploadedAt, uploadedAt).Scan(&currentUserID, &isInsertionTime)
 	if err != nil {
 		return Order{}, err
 	}
@@ -148,7 +145,7 @@ func (store *PostgresStorage) CreateOrder(ctx context.Context, orderNumber int, 
 	return Order{OrderNumber: orderNumber, UserID: userID}, nil
 }
 
-// GetOrdersByUser todo
+// GetOrdersByUser get user orders from DB
 func (store *PostgresStorage) GetOrdersByUser(ctx context.Context, userID int) ([]Order, error) {
 	query := `
 		SELECT id, order_number, user_id, status, accrual, uploaded_at 
@@ -176,7 +173,7 @@ func (store *PostgresStorage) GetOrdersByUser(ctx context.Context, userID int) (
 	return orders, nil
 }
 
-// WithdrawUser todo
+// WithdrawUser withraw user
 func (store *PostgresStorage) WithdrawUser(ctx context.Context, userID int, sum float64, orderNumber string) error {
 	tx, err := store.DB.Begin()
 	if err != nil {
@@ -190,7 +187,7 @@ func (store *PostgresStorage) WithdrawUser(ctx context.Context, userID int, sum 
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrUserNotFound
 		}
-		logger.Log.Error("cannot lock user row", zap.Error(err))
+		store.logging.Error("cannot lock user row", zap.Error(err))
 		return err
 	}
 
@@ -221,7 +218,7 @@ func (store *PostgresStorage) WithdrawUser(ctx context.Context, userID int, sum 
 	return tx.Commit()
 }
 
-// GetWithdrawalsByUser todo
+// GetWithdrawalsByUser get withdrawals from DB
 func (store *PostgresStorage) GetWithdrawalsByUser(ctx context.Context, userID int) ([]Withdrawal, error) {
 	query := `
 		SELECT order_number, sum, created_at
@@ -264,7 +261,7 @@ func (store *PostgresStorage) AccrueUser(ctx context.Context, userID int, sum fl
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrUserNotFound
 		}
-		logger.Log.Error("cannot lock user row", zap.Error(err))
+		store.logging.Error("cannot lock user row", zap.Error(err))
 		return err
 	}
 

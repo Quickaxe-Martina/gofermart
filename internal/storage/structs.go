@@ -37,7 +37,7 @@ const (
 // Order model
 type Order struct {
 	ID          int
-	OrderNumber int
+	OrderNumber string
 	Status      string
 	Accrual     float64
 	UserID      int
@@ -46,7 +46,7 @@ type Order struct {
 
 // OrderStorage defines methods for order management
 type OrderStorage interface {
-	CreateOrder(ctx context.Context, orderNumber int, userID int) (Order, error)
+	CreateOrder(ctx context.Context, orderNumber string, userID int) (Order, error)
 	GetOrdersByUser(ctx context.Context, userID int) ([]Order, error)
 }
 
@@ -57,13 +57,13 @@ type User struct {
 	PasswordHash string
 }
 
-// UserBalance todo
+// UserBalance user balance model
 type UserBalance struct {
 	Balance   float64 `json:"current"`
 	Withdrawn float64 `json:"withdrawn"`
 }
 
-// Withdrawal todo
+// Withdrawal withdrawal model
 type Withdrawal struct {
 	OrderNumber string
 	Sum         float64

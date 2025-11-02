@@ -17,11 +17,18 @@ import (
 	"go.uber.org/zap"
 )
 
-func setupRouter(cfg *config.Config, store storage.Storage, orderWorker *repository.OrderWorkers) *chi.Mux {
-	r := chi.NewRouter()
-	h := handler.NewHandler(cfg, store, orderWorker)
+type setupRouterConfig struct {
+	cfg         *config.Config
+	store       storage.Storage
+	orderWorker *repository.OrderWorkers
+	logging     *zap.Logger
+}
 
-	r.Use(logger.RequestLogger)
+func setupRouter(setupCfg setupRouterConfig) *chi.Mux {
+	r := chi.NewRouter()
+	h := handler.NewHandler(setupCfg.cfg, setupCfg.store, setupCfg.orderWorker, setupCfg.logging)
+
+	r.Use(h.RequestLogger)
 	// r.Use(handler.GzipMiddleware)
 	r.Route("/api/user", func(r chi.Router) {
 		r.Post("/register", h.RegisterUser)
@@ -47,19 +54,41 @@ func setupRouter(cfg *config.Config, store storage.Storage, orderWorker *reposit
 }
 
 func main() {
-	cfg := config.NewConfig()
-	store, err := storage.NewStorage(cfg)
+	logging, err := logger.Initialize("info")
 	if err != nil {
-		logger.Log.Error("Storage error", zap.Error(err))
-	}
-	orderWorker := repository.NewOrderWorkers(store, cfg.NumWorkers, cfg.AccuralSystemAddress, cfg.PullSize, time.Second*time.Duration(cfg.PoolTimeout))
-
-	if err := logger.Initialize("info"); err != nil {
 		log.Panic(err)
+		return
 	}
-	r := setupRouter(cfg, store, orderWorker)
-	logger.Log.Info(cfg.DatabaseDsn)
-	logger.Log.Info("application is running")
+
+	cfg := config.NewConfig()
+	store, err := storage.NewStorage(cfg, logging)
+	if err != nil {
+		logging.Error("Storage error", zap.Error(err))
+		return
+	}
+	orderWorker, err := repository.NewOrderWorkers(repository.OrderWorkersConfig{
+		Store:       store,
+		NumWorkers:  cfg.NumWorkers,
+		URL:         cfg.AccrualSystemAddress,
+		PoolSize:    cfg.PullSize,
+		PoolTimeout: time.Second * time.Duration(cfg.PoolTimeout),
+		Logging:     logging,
+	})
+
+	if err != nil {
+		logging.Error("Workers error", zap.Error(err))
+		return
+	}
+
+	r := setupRouter(setupRouterConfig{
+		cfg:         cfg,
+		store:       store,
+		orderWorker: orderWorker,
+		logging:     logging,
+	})
+
+	logging.Info(cfg.DatabaseDsn)
+	logging.Info("application is running")
 
 	// Обработчик завершения (Ctrl+C, SIGTERM и т.п.)
 	go func() {
@@ -71,5 +100,5 @@ func main() {
 		os.Exit(0)
 	}()
 
-	logger.Log.Fatal("", zap.Error(http.ListenAndServe(cfg.RunAddr, r)))
+	logging.Fatal("", zap.Error(http.ListenAndServe(cfg.RunAddr, r)))
 }

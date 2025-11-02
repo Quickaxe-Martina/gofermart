@@ -21,7 +21,7 @@ func ParseFlags(cfg *Config, onlyEmpty bool) {
 	if onlyEmpty && cfg.DatabaseDsn == "" {
 		cfg.DatabaseDsn = databaseDsn
 	}
-	if onlyEmpty && cfg.AccuralSystemAddress == "" {
-		cfg.AccuralSystemAddress = accuralSystemAddress
+	if onlyEmpty && cfg.AccrualSystemAddress == "" {
+		cfg.AccrualSystemAddress = accuralSystemAddress
 	}
 }

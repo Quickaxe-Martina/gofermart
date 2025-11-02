@@ -5,9 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Quickaxe-Martina/gofermart/internal/auth"
-	// "github.com/Quickaxe-Martina/gofermart/internal/logger"
 	"github.com/Quickaxe-Martina/gofermart/internal/storage"
-	// "go.uber.org/zap"
 )
 
 type ctxKey string

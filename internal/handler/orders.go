@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Quickaxe-Martina/gofermart/internal/logger"
 	"github.com/Quickaxe-Martina/gofermart/internal/service"
 	"github.com/Quickaxe-Martina/gofermart/internal/storage"
 	"go.uber.org/zap"
@@ -24,13 +23,14 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orderCode, err := strconv.Atoi(string(body))
+	orderCode := string(body)
+	orderCodeInt, err := strconv.Atoi(orderCode)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if !service.LuhnValidate(orderCode) {
+	if !service.LuhnValidate(orderCodeInt) {
 		http.Error(w, "Incorrect order number", http.StatusUnprocessableEntity)
 		return
 	}
@@ -43,13 +43,13 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		} else if errors.Is(err, storage.ErrOrderAlreadyCreatedByUser) {
 			w.WriteHeader(http.StatusOK)
 		} else {
-			logger.Log.Error("", zap.Error(err))
+			h.logging.Error("", zap.Error(err))
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
 		return
 	}
 
-	h.orderWorker.AddTask(strconv.Itoa(orderCode), user.ID)
+	h.orderWorker.AddTask(orderCode, user.ID)
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -68,13 +68,13 @@ func (h *Handler) GetOrders(w http.ResponseWriter, r *http.Request) {
 	user := GetUser(r.Context())
 	orders, err := h.store.GetOrdersByUser(r.Context(), user.ID)
 	if err != nil {
-		logger.Log.Error("", zap.Error(err))
+		h.logging.Error("", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 
 	for _, order := range orders {
 		responses = append(responses, UserOrdersResponse{
-			Number:     strconv.Itoa(order.OrderNumber),
+			Number:     order.OrderNumber,
 			Status:     order.Status,
 			Accrual:    order.Accrual,
 			UploadedAt: order.UploadedAt,
@@ -85,7 +85,7 @@ func (h *Handler) GetOrders(w http.ResponseWriter, r *http.Request) {
 
 	enc := json.NewEncoder(w)
 	if err := enc.Encode(responses); err != nil {
-		logger.Log.Error("error encoding response", zap.Error(err))
+		h.logging.Error("error encoding response", zap.Error(err))
 		return
 	}
 

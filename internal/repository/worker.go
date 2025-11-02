@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Quickaxe-Martina/gofermart/internal/client"
-	"github.com/Quickaxe-Martina/gofermart/internal/logger"
 	"github.com/Quickaxe-Martina/gofermart/internal/storage"
 	"go.uber.org/zap"
 )
@@ -17,7 +16,7 @@ import (
 // ErrWorkerStopped woker stopped
 var ErrWorkerStopped = errors.New("woker stopped")
 
-// CheckOrderTask todo
+// CheckOrderTask task model for check order
 type checkOrderTask struct {
 	OrderNumber   string
 	ScheduledTime time.Time
@@ -39,38 +38,56 @@ type OrderWorkers struct {
 	resultCh chan resultTask
 	doneCh   chan struct{}
 	wg       sync.WaitGroup
+	logging  *zap.Logger
+	ctx      context.Context
+	cancel   context.CancelFunc
+}
+
+// OrderWorkersConfig params for init OrderWorkers
+type OrderWorkersConfig struct {
+	Store       storage.Storage
+	NumWorkers  int
+	URL         string
+	PoolSize    int
+	PoolTimeout time.Duration
+	Logging     *zap.Logger
 }
 
 // NewOrderWorkers create OrderWorkers
-func NewOrderWorkers(store storage.Storage, numWorkers int, URL string, poolSize int, poolTimeout time.Duration) *OrderWorkers {
-	client, err := client.NewAccrualClient(URL, poolSize, poolTimeout)
+func NewOrderWorkers(cfg OrderWorkersConfig) (*OrderWorkers, error) {
+	client, err := client.NewAccrualClient(cfg.URL, cfg.PoolSize, cfg.PoolTimeout)
 	if err != nil {
-		logger.Log.Error("", zap.Error(err))
-		return nil
+		cfg.Logging.Error("", zap.Error(err))
+		return nil, err
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+
 	wm := &OrderWorkers{
-		store:    store,
+		store:    cfg.Store,
 		client:   client,
 		inputCh:  make(chan checkOrderTask, 100),
-		workerCh: make(chan checkOrderTask, numWorkers*3),
+		workerCh: make(chan checkOrderTask, cfg.NumWorkers*3),
 		resultCh: make(chan resultTask, 100),
 		doneCh:   make(chan struct{}),
+		logging:  cfg.Logging,
+		ctx:      ctx,
+		cancel:   cancel,
 	}
 
 	wm.wg.Add(1)
 	go wm.aggregator()
-	for i := 0; i < numWorkers; i++ {
+	for i := 0; i < cfg.NumWorkers; i++ {
 		wm.wg.Add(1)
 		go wm.worker(i)
 		wm.wg.Add(1)
 		go wm.resultWorker(i)
 	}
 
-	return wm
+	return wm, nil
 }
 
 func (wm *OrderWorkers) aggregator() {
-	logger.Log.Info("aggregator started")
+	wm.logging.Info("aggregator started")
 	defer wm.wg.Done()
 
 	var tasks []checkOrderTask
@@ -117,8 +134,8 @@ func (wm *OrderWorkers) aggregator() {
 				timer.Stop()
 			}
 
-		case <-wm.doneCh:
-			logger.Log.Info("aggregator stopped")
+		case <-wm.ctx.Done():
+			wm.logging.Info("aggregator stopped")
 			timer.Stop()
 			return
 		}
@@ -127,11 +144,11 @@ func (wm *OrderWorkers) aggregator() {
 
 func (wm *OrderWorkers) worker(id int) {
 	defer wm.wg.Done()
-	logger.Log.Info(fmt.Sprintf("worker-%d started", id))
+	wm.logging.Info(fmt.Sprintf("worker-%d started", id))
 	for {
 		select {
-		case <-wm.doneCh:
-			logger.Log.Info(fmt.Sprintf("worker-%d stopping", id))
+		case <-wm.ctx.Done():
+			wm.logging.Info(fmt.Sprintf("worker-%d stopping", id))
 			return
 		case task := <-wm.workerCh:
 			wm.handleCheckOrder(task)
@@ -140,12 +157,12 @@ func (wm *OrderWorkers) worker(id int) {
 }
 
 func (wm *OrderWorkers) handleCheckOrder(task checkOrderTask) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(wm.ctx, 5*time.Second)
 	defer cancel()
 
 	result, err := wm.client.GetOrder(ctx, task.OrderNumber)
 	if err != nil {
-		if errors.Is(err, client.ErrToManyRequests) {
+		if errors.Is(err, client.ErrTooManyRequest) {
 			task.Attempts++
 			task.ScheduledTime = time.Now().Add(time.Second * 10)
 			wm.inputCh <- task
@@ -164,14 +181,14 @@ func (wm *OrderWorkers) handleCheckOrder(task checkOrderTask) {
 }
 
 func (wm *OrderWorkers) resultWorker(id int) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(wm.ctx, 5*time.Second)
 	defer cancel()
 	defer wm.wg.Done()
-	logger.Log.Info(fmt.Sprintf("result worker-%d started", id))
+	wm.logging.Info(fmt.Sprintf("result worker-%d started", id))
 	for {
 		select {
-		case <-wm.doneCh:
-			logger.Log.Info(fmt.Sprintf("result worker-%d stopping", id))
+		case <-wm.ctx.Done():
+			wm.logging.Info(fmt.Sprintf("result worker-%d stopping", id))
 			return
 		case task := <-wm.resultCh:
 			wm.store.AccrueUser(ctx, task.checkTask.UserID, task.result.Accrual, task.result.Status, task.checkTask.OrderNumber)
@@ -193,8 +210,9 @@ func (wm *OrderWorkers) AddTask(OrderNumber string, userID int) error {
 
 // Stop end workers work
 func (wm *OrderWorkers) Stop() {
+	wm.cancel()
 	close(wm.doneCh)
 	wm.wg.Wait()
-	logger.Log.Info("All workers stopped")
+	wm.logging.Info("All workers stopped")
 	close(wm.inputCh)
 }

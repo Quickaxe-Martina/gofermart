@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/Quickaxe-Martina/gofermart/internal/auth"
-	"github.com/Quickaxe-Martina/gofermart/internal/logger"
 	"github.com/Quickaxe-Martina/gofermart/internal/storage"
 	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
@@ -18,26 +17,26 @@ type registerUserRequest struct {
 	Password string `json:"password" validate:"required,min=8,max=50,containsany=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"`
 }
 
-// RegisterUser TODO
+// RegisterUser register user method
 func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	var req registerUserRequest
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&req); err != nil {
-		logger.Log.Info("cannot decode request JSON body", zap.Error(err))
+		h.logging.Info("cannot decode request JSON body", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err := validate.Struct(req); err != nil {
-		logger.Log.Info("validation error", zap.Error(err))
+		h.logging.Info("validation error", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	passwordHash, err := auth.GenerateHash(req.Password)
 	if err != nil {
-		logger.Log.Error("", zap.Error(err))
+		h.logging.Error("", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -53,7 +52,7 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := auth.GenerateAndSetTokenInCookie(w, h.cfg.SecretKey, time.Hour*time.Duration(h.cfg.TokenExp), user.ID, user.PasswordHash); err != nil {
-		logger.Log.Error("failed to generate token", zap.Error(err))
+		h.logging.Error("failed to generate token", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -61,19 +60,19 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// LoginUser TODO
+// LoginUser login user method
 func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	var req registerUserRequest
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&req); err != nil {
-		logger.Log.Info("cannot decode request JSON body", zap.Error(err))
+		h.logging.Info("cannot decode request JSON body", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err := validate.Struct(req); err != nil {
-		logger.Log.Info("validation error", zap.Error(err))
+		h.logging.Info("validation error", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -83,7 +82,7 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, storage.ErrUserNotFound) {
 			http.Error(w, "Invalid login/password pair", http.StatusUnauthorized)
 		} else {
-			logger.Log.Error("", zap.Error(err))
+			h.logging.Error("", zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
@@ -95,7 +94,7 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := auth.GenerateAndSetTokenInCookie(w, h.cfg.SecretKey, time.Hour*time.Duration(h.cfg.TokenExp), user.ID, user.PasswordHash); err != nil {
-		logger.Log.Error("failed to generate token", zap.Error(err))
+		h.logging.Error("failed to generate token", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Quickaxe-Martina/gofermart/internal/logger"
 	"github.com/Quickaxe-Martina/gofermart/internal/service"
 	"github.com/Quickaxe-Martina/gofermart/internal/storage"
 	"github.com/go-playground/validator/v10"
@@ -22,10 +21,10 @@ func (h *Handler) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 	balance, err := h.store.GetBalanceByUser(r.Context(), user.ID)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
-			logger.Log.Error(user.UserName)
+			h.logging.Error(user.UserName)
 			http.Error(w, "Invalid username", http.StatusUnauthorized)
 		} else {
-			logger.Log.Error("", zap.Error(err))
+			h.logging.Error("", zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
@@ -33,7 +32,7 @@ func (h *Handler) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 
 	enc := json.NewEncoder(w)
 	if err := enc.Encode(balance); err != nil {
-		logger.Log.Error("error encoding response", zap.Error(err))
+		h.logging.Error("error encoding response", zap.Error(err))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -44,7 +43,7 @@ type withdrawUserRequest struct {
 	Sum   float64 `json:"sum" validate:"required,gte=0"`
 }
 
-// WithdrawUser todo
+// WithdrawUser withdraw user method
 func (h *Handler) WithdrawUser(w http.ResponseWriter, r *http.Request) {
 	user := GetUser(r.Context())
 
@@ -57,7 +56,7 @@ func (h *Handler) WithdrawUser(w http.ResponseWriter, r *http.Request) {
 
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err := validate.Struct(req); err != nil {
-		logger.Log.Info("validation error", zap.Error(err))
+		h.logging.Info("validation error", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -75,12 +74,12 @@ func (h *Handler) WithdrawUser(w http.ResponseWriter, r *http.Request) {
 	err = h.store.WithdrawUser(r.Context(), user.ID, req.Sum, req.Order)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
-			logger.Log.Error(user.UserName)
+			h.logging.Error(user.UserName)
 			http.Error(w, "Invalid username", http.StatusUnauthorized)
 		} else if errors.Is(err, storage.ErrLowBalance) {
 			http.Error(w, "Payment required", http.StatusPaymentRequired)
 		} else {
-			logger.Log.Error("", zap.Error(err))
+			h.logging.Error("", zap.Error(err))
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
 		return
@@ -89,19 +88,19 @@ func (h *Handler) WithdrawUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// GetWithdrawalsByUserResponse todo
+// GetWithdrawalsByUserResponse response model
 type GetWithdrawalsByUserResponse struct {
 	Order       string  `json:"order"`
 	Sum         float64 `json:"sum"`
 	ProcessedAt string  `json:"processed_at"`
 }
 
-// GetWithdrawalsByUser todo
+// GetWithdrawalsByUser get user's withdrawals method
 func (h *Handler) GetWithdrawalsByUser(w http.ResponseWriter, r *http.Request) {
 	user := GetUser(r.Context())
 	withdrawals, err := h.store.GetWithdrawalsByUser(r.Context(), user.ID)
 	if err != nil {
-		logger.Log.Error("", zap.Error(err))
+		h.logging.Error("", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -119,7 +118,7 @@ func (h *Handler) GetWithdrawalsByUser(w http.ResponseWriter, r *http.Request) {
 		}
 		enc := json.NewEncoder(w)
 		if err := enc.Encode(resp); err != nil {
-			logger.Log.Error("error encoding response", zap.Error(err))
+			h.logging.Error("error encoding response", zap.Error(err))
 			return
 		}
 		w.WriteHeader(http.StatusOK)

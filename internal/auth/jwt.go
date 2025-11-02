@@ -27,7 +27,7 @@ var ErrInvalidJWTToken = errors.New("invalid jwt token")
 // Имя куки, в которой хранится JWT-токен
 const cookieUserJWT = "gophermart_jwt_token"
 
-// GetUser TODO
+// GetUser get user from token
 func GetUser(tokenString string, secretKey string) (storage.User, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims,
@@ -84,7 +84,7 @@ func SetTokenInCookie(w http.ResponseWriter, token string, ttl time.Duration) {
 	http.SetCookie(w, cookie)
 }
 
-// GenerateAndSetTokenInCookie TODO
+// GenerateAndSetTokenInCookie generate token and set in cookie
 func GenerateAndSetTokenInCookie(w http.ResponseWriter, secretKey string, tokenExp time.Duration, userID int, username string) error {
 	token, err := BuildJWTString(secretKey, tokenExp, userID, username)
 	if err != nil {

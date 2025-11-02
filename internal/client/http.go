@@ -11,12 +11,12 @@ import (
 	"resty.dev/v3"
 )
 
-// HTTPAccrualClient todo
+// HTTPAccrualClient http implementation AccrualClient
 type HTTPAccrualClient struct {
 	client *resty.Client
 }
 
-// NewHTTPAccrualClient todo
+// NewHTTPAccrualClient create HTTPAccrualClient
 func NewHTTPAccrualClient(URL string, poolSize int, poolTimeout time.Duration) *HTTPAccrualClient {
 	url := URL
 	if !strings.HasPrefix(url, "http://") {
@@ -33,12 +33,12 @@ func NewHTTPAccrualClient(URL string, poolSize int, poolTimeout time.Duration) *
 	return &HTTPAccrualClient{client: client}
 }
 
-// Close todo
+// Close close client
 func (c *HTTPAccrualClient) Close() error {
 	return c.client.Close()
 }
 
-// GetOrder todo
+// GetOrder get orger from accrual service
 func (c *HTTPAccrualClient) GetOrder(ctx context.Context, orderNumber string) (AccrualResponse, error) {
 	var response AccrualResponse
 
@@ -52,7 +52,7 @@ func (c *HTTPAccrualClient) GetOrder(ctx context.Context, orderNumber string) (A
 	if r.StatusCode() == http.StatusNoContent {
 		return AccrualResponse{}, ErrOrderNotRegistered
 	} else if r.StatusCode() == http.StatusTooManyRequests {
-		return AccrualResponse{}, ErrToManyRequests
+		return AccrualResponse{}, ErrTooManyRequest
 	} else if r.StatusCode() != http.StatusOK {
 		return AccrualResponse{}, fmt.Errorf("status code %d", r.StatusCode())
 	}

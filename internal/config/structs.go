@@ -4,7 +4,7 @@ package config
 type Config struct {
 	RunAddr              string `env:"SERVER_ADDRESS"`
 	DatabaseDsn          string `env:"DATABASE_DSN"`
-	AccuralSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
+	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
 	MigrationsPath       string `env:"MIGRATIONS_PATH"`
 	SecretKey            string `env:"SECRET_KEY"`
 	TokenExp             int    `env:"TOKEN_EXP"`
@@ -18,7 +18,7 @@ func NewConfig() *Config {
 	var cfg = Config{
 		RunAddr:              "",
 		DatabaseDsn:          "",
-		AccuralSystemAddress: "",
+		AccrualSystemAddress: "",
 		MigrationsPath:       "./migrations",
 		SecretKey:            "my_secret_key",
 		TokenExp:             3,

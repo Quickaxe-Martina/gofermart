@@ -5,20 +5,20 @@ import (
 	"errors"
 )
 
-// ErrOrderNotRegistered todo
+// ErrOrderNotRegistered order not registered
 var ErrOrderNotRegistered = errors.New("order not registered")
 
-// ErrToManyRequests todo
-var ErrToManyRequests = errors.New("to many requests")
+// ErrTooManyRequest to many request
+var ErrTooManyRequest = errors.New("to many request")
 
-// AccrualResponse todo
+// AccrualResponse response model
 type AccrualResponse struct {
 	Order   string  `json:"order" validate:"required"`
 	Status  string  `json:"status" validate:"required,oneof=REGISTERED INVALID PROCESSING PROCESSED"`
 	Accrual float64 `json:"accrual"`
 }
 
-// AccrualClient todo
+// AccrualClient interface for accrual service
 type AccrualClient interface {
 	GetOrder(context.Context, string) (AccrualResponse, error)
 	Close() error
