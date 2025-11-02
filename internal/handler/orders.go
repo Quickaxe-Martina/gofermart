@@ -5,11 +5,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/Quickaxe-Martina/gofermart/internal/service"
-	"github.com/Quickaxe-Martina/gofermart/internal/storage"
 	"go.uber.org/zap"
 )
 
@@ -24,32 +22,22 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	orderCode := string(body)
-	orderCodeInt, err := strconv.Atoi(orderCode)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 
-	if !service.LuhnValidate(orderCodeInt) {
-		http.Error(w, "Incorrect order number", http.StatusUnprocessableEntity)
-		return
-	}
-
-	_, err = h.store.CreateOrder(r.Context(), orderCode, user.ID)
+	err = h.service.CreateOrder(r.Context(), orderCode, user.ID)
 
 	if err != nil {
-		if errors.Is(err, storage.ErrOrderCreatedByAnotherUser) {
+		if errors.Is(err, service.ErrOrderCreatedByAnotherUser) {
 			http.Error(w, "The order number has already been uploaded by another user", http.StatusConflict)
-		} else if errors.Is(err, storage.ErrOrderAlreadyCreatedByUser) {
+		} else if errors.Is(err, service.ErrOrderAlreadyCreatedByUser) {
 			w.WriteHeader(http.StatusOK)
+		} else if errors.Is(err, service.ErrIncorrectOrderNumber) {
+			http.Error(w, "Incorrect order number", http.StatusUnprocessableEntity)
 		} else {
 			h.logging.Error("", zap.Error(err))
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
 		return
 	}
-
-	h.orderWorker.AddTask(orderCode, user.ID)
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -66,7 +54,7 @@ type UserOrdersResponse struct {
 func (h *Handler) GetOrders(w http.ResponseWriter, r *http.Request) {
 	var responses []UserOrdersResponse
 	user := GetUser(r.Context())
-	orders, err := h.store.GetOrdersByUser(r.Context(), user.ID)
+	orders, err := h.service.GetUserOrders(r.Context(), user.ID)
 	if err != nil {
 		h.logging.Error("", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

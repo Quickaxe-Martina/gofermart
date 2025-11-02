@@ -5,11 +5,9 @@ import (
 	"errors"
 	"net/http"
 
-	"strconv"
 	"time"
 
 	"github.com/Quickaxe-Martina/gofermart/internal/service"
-	"github.com/Quickaxe-Martina/gofermart/internal/storage"
 	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 )
@@ -18,15 +16,14 @@ import (
 func (h *Handler) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 	user := GetUser(r.Context())
 	w.Header().Set("Content-Type", "application/json")
-	balance, err := h.store.GetBalanceByUser(r.Context(), user.ID)
+	balance, err := h.service.GetUserBalance(r.Context(), user.ID)
 	if err != nil {
-		if errors.Is(err, storage.ErrUserNotFound) {
-			h.logging.Error(user.UserName)
-			http.Error(w, "Invalid username", http.StatusUnauthorized)
-		} else {
-			h.logging.Error("", zap.Error(err))
-			w.WriteHeader(http.StatusInternalServerError)
+		if errors.Is(err, service.ErrUserNotFound) {
+			http.Error(w, "Invalid user", http.StatusUnauthorized)
+			return
 		}
+		h.logging.Error("", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -61,23 +58,15 @@ func (h *Handler) WithdrawUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orderCode, err := strconv.Atoi(req.Order)
+	err := h.service.WithdrawUser(r.Context(), user.ID, req.Sum, req.Order)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if !service.LuhnValidate(orderCode) {
-		http.Error(w, "Incorrect order number", http.StatusUnprocessableEntity)
-		return
-	}
-	err = h.store.WithdrawUser(r.Context(), user.ID, req.Sum, req.Order)
-	if err != nil {
-		if errors.Is(err, storage.ErrUserNotFound) {
+		if errors.Is(err, service.ErrUserNotFound) {
 			h.logging.Error(user.UserName)
 			http.Error(w, "Invalid username", http.StatusUnauthorized)
-		} else if errors.Is(err, storage.ErrLowBalance) {
+		} else if errors.Is(err, service.ErrLowBalance) {
 			http.Error(w, "Payment required", http.StatusPaymentRequired)
+		} else if errors.Is(err, service.ErrIncorrectOrderNumber) {
+			http.Error(w, "Incorrect order number", http.StatusUnprocessableEntity)
 		} else {
 			h.logging.Error("", zap.Error(err))
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -98,10 +87,11 @@ type GetWithdrawalsByUserResponse struct {
 // GetWithdrawalsByUser get user's withdrawals method
 func (h *Handler) GetWithdrawalsByUser(w http.ResponseWriter, r *http.Request) {
 	user := GetUser(r.Context())
-	withdrawals, err := h.store.GetWithdrawalsByUser(r.Context(), user.ID)
+	withdrawals, err := h.service.GetUserWithdrawals(r.Context(), user.ID)
 	if err != nil {
 		h.logging.Error("", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 

@@ -12,21 +12,21 @@ import (
 	"github.com/Quickaxe-Martina/gofermart/internal/handler"
 	"github.com/Quickaxe-Martina/gofermart/internal/logger"
 	"github.com/Quickaxe-Martina/gofermart/internal/repository"
+	"github.com/Quickaxe-Martina/gofermart/internal/service"
 	"github.com/Quickaxe-Martina/gofermart/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
 
 type setupRouterConfig struct {
-	cfg         *config.Config
-	store       storage.Storage
-	orderWorker *repository.OrderWorkers
-	logging     *zap.Logger
+	cfg     *config.Config
+	service *service.Service
+	logging *zap.Logger
 }
 
 func setupRouter(setupCfg setupRouterConfig) *chi.Mux {
 	r := chi.NewRouter()
-	h := handler.NewHandler(setupCfg.cfg, setupCfg.store, setupCfg.orderWorker, setupCfg.logging)
+	h := handler.NewHandler(setupCfg.cfg, *setupCfg.service, setupCfg.logging)
 
 	r.Use(h.RequestLogger)
 	// r.Use(handler.GzipMiddleware)
@@ -80,11 +80,17 @@ func main() {
 		return
 	}
 
+	service := service.NewService(&service.ServiceConfig{
+		Cfg:         cfg,
+		Store:       store,
+		OrderWorker: orderWorker,
+		Logging:     logging,
+	})
+
 	r := setupRouter(setupRouterConfig{
-		cfg:         cfg,
-		store:       store,
-		orderWorker: orderWorker,
-		logging:     logging,
+		cfg:     cfg,
+		service: service,
+		logging: logging,
 	})
 
 	logging.Info(cfg.DatabaseDsn)

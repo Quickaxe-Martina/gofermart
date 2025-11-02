@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/Quickaxe-Martina/gofermart/internal/auth"
-	"github.com/Quickaxe-Martina/gofermart/internal/storage"
+	"github.com/Quickaxe-Martina/gofermart/internal/service"
 	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 )
@@ -41,9 +41,9 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.store.CreateUser(r.Context(), req.Login, passwordHash)
+	user, err := h.service.CreateUser(r.Context(), req.Login, passwordHash)
 	if err != nil {
-		if errors.Is(err, storage.ErrUserNameAlreadyExists) {
+		if errors.Is(err, service.ErrUserNameAlreadyExists) {
 			http.Error(w, "UserName already taken", http.StatusConflict)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -77,9 +77,9 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.store.GetUserByUserName(r.Context(), req.Login)
+	user, err := h.service.GetUser(r.Context(), req.Login)
 	if err != nil {
-		if errors.Is(err, storage.ErrUserNotFound) {
+		if errors.Is(err, service.ErrUserNotFound) {
 			http.Error(w, "Invalid login/password pair", http.StatusUnauthorized)
 		} else {
 			h.logging.Error("", zap.Error(err))
